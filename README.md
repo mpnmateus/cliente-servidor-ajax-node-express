@@ -30,7 +30,7 @@ Este projeto é composto por:
 ---
 
 ## 📂 Estrutura de Pastas
-
+```plaintext
 req-cliente-servidor/
 ├─ node_modules/ # Dependências (ignorado no Git)
 ├─ public/
