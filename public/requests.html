@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <!-- =========================================================================
+       Cabeçalho do documento HTML
+       - Define codificação, título e um CSS simples para visualização.
+       - Nada aqui fala com o back-end; é apenas apresentação (front-end).
+     ========================================================================= -->
+
+  <!-- Diz ao navegador que este é um documento HTML5 -->
+  <meta charset="UTF-8" />
+  <!-- Título que aparece na aba do navegador -->
+  <title>Exemplo API Request - AJAX</title>
+
+  <!-- Metadado redundante (charset já foi definido acima). Mantido por compat. -->
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <style>
+    /* ========================================================================
+       Bloco de estilo (CSS)
+       - Responsável pelo layout simples da página, botões, tabela e modal.
+       - Não tem relação direta com o servidor; é só visual.
+       ======================================================================== */
+
+    /* Base tipográfica e espaçamento do corpo da página */
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#eee; margin:0; padding:24px; }
+    /* Título (só visual). A fonte "Comic Sans" é opcional e meramente estética */
+    h1 { font-family: "Comic Sans MS", cursive; margin: 0 0 16px; color:#1f2a69; }
+
+    /* Container dos botões de ação (requisições) */
+    #botoes { display:flex; gap:12px; margin:12px 0 24px; }
+
+    /* Estilo dos botões (visual e interativo) */
+    button { border:0; padding:12px 16px; border-radius:8px; background:#314b99; color:#fff; cursor:pointer; font-weight:600; }
+    button:disabled{ opacity:.6; cursor:not-allowed; }
+
+    /* Seção onde a tabela de dados será exibida */
+    section#relatorio { margin-top: 8px; }
+    /* Tabela com borda, usada para mostrar dados retornados do servidor */
+    table { border-collapse: collapse; background:#fff; }
+    th, td { border:1px solid #ccc; padding:8px 12px; text-align:left; }
+    th { background:#e5e7eb; }
+    td.valor, th.total { text-align:right; }
+    /* ================= Modal (camada flutuante) =============================
+       - Usado para exibir mensagens (ex.: resultado do fetch externo).
+       - É controlado via JS: alternamos display:none <-> display:flex.
+       ====================================================================== */
+    #modal { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; }
+    #areaModal { background:#fff; width:min(90vw, 720px); max-height:80vh; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); overflow:hidden; display:flex; flex-direction:column; }
+    #areaModal header { background:#1f2a69; color:#fff; padding:14px 18px; font-weight:700; }
+    #conteudoModal { padding:16px 18px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
+    #rodapeModal { padding:14px 18px; display:flex; justify-content:flex-end; }
+    #fecharModal { background:#314b99; color:#fff; border:0; padding:8px 14px; border-radius:6px; cursor:pointer; }
+
+    /* Logotipo (apenas decorativo) */
+    #logo { width:200px; }
+  </style>
+</head>
+<body>
+  <!-- =========================================================================
+       Corpo do documento (markup HTML)
+       - Estrutura visual com título, botões de ação e tabela de dados.
+       - O JS (no final) manipula estes elementos (DOM) após receber dados via AJAX.
+     ========================================================================= -->
+
+  <!-- Imagem do logo; arquivo estático servido pelo Express (public/unisinhos-logo.svg)
+       Isso funciona por causa do app.use(express.static('public')) no server.js -->
+  <img id="logo" src="servidor_logo.png" alt="Logo" />
+  <!-- Cabeçalho da página -->
+  <header><h1>Exemplo JavaScript: Processamento Assíncrono / Requests</h1></header>
+
+  <!-- Botões que disparam as duas estratégias de requisição AJAX:
+       1) Fetch API (moderna, baseada em Promises)
+       2) XMLHttpRequest (mais antiga, baseada em eventos) -->
+  <div id="botoes">
+    <!-- Ao clicar, chamamos a função request1() definida no <script> -->
+    <button onclick="request1()">Requisição via Request API</button>
+    <!-- Ao clicar, chamamos a função request2() definida no <script> -->
+    <button onclick="request2()">Requisição via XMLHttpRequest API</button>
+  </div>
+
+  <!-- Seção onde exibiremos dados tabulares (vendedor / valorVendido)
+       - A tabela começa apenas com o cabeçalho.
+       - O JavaScript vai inserir as linhas (<tr>) dinamicamente,
+         após receber o JSON da rota GET /dados do server.js -->
+  <section id="relatorio">
+    <h2>Dados</h2>
+    <table id="dados">
+      <tr>
+        <th>Vendedor</th>
+        <th>Valor Vendido</th>
+      </tr>
+    </table>
+  </section>
+
+  <!-- =========================== Componente Modal ===========================
+       - Estrutura de popup para mensagens informativas.
+       - O JS chama abrirModal(msg) para mostrar textos aqui.
+       - Ex.: mostrar o JSON obtido via fetch externo.
+     ======================================================================== -->
+  <div id="modal" role="dialog" aria-modal="true">
+    <div id="areaModal">
+      <header>Exemplo Request</header>
+      <div id="conteudoModal"></div>
+      <div id="rodapeModal">
+        <button id="fecharModal" onclick="fecharModal()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       Bloco de script (JavaScript do front-end)
+       - Contém funções para abrir/fechar modal, fazer requisições AJAX e
+         atualizar a interface (DOM) com base nos dados retornados pelo servidor.
+       - Aqui ocorre a ponte Cliente → Servidor → Cliente.
+     ========================================================================= -->
+  <script>
+    // ========================== Utilidades de Modal ==========================
+    // abrirModal(msg): exibe o modal e coloca a mensagem no corpo.
+    function abrirModal(msg) {
+      // Pega a <div> de conteúdo do modal
+      document.getElementById('conteudoModal').textContent = msg;
+      // Torna o modal visível (display:flex centraliza conteúdo)
+      document.getElementById('modal').style.display = 'flex';
+    }
+
+    // fecharModal(): esconde o modal (remove da tela)
+    function fecharModal() {
+      document.getElementById('modal').style.display = 'none';
+    }
+
+    // ========================================================================
+    // Request 1 — Usando Fetch(Request) + Promises
+    // Objetivo:
+    //   - Demonstrar uma requisição AJAX moderna (Fetch API) para uma URL externa.
+    //   - Ao obter o JSON, exibir os dados no modal em formato legível.
+    //
+    // Relação com server.js:
+    //   - Não depende do seu servidor local (rota /dados).
+    //   - Mostra que o front-end também pode consumir APIs públicas/externas.
+    // ========================================================================
+    function request1() {
+      // Cria um objeto Request com a URL externa (exemplo W3Schools)
+      const myRequest = new Request('https://www.w3schools.com/angular/customers_mysql.php');
+
+      // fetch(myRequest) retorna uma Promise que será resolvida quando a resposta chegar
+      fetch(myRequest)
+        .then(response => {
+          // Verifica se o servidor externo respondeu com sucesso (HTTP 200)
+          if (response.status === 200) {
+            // Poderíamos responder como texto com response.text(),
+            // mas aqui queremos JSON (objeto JavaScript)
+            return response.json();
+          } else {
+            // Se não for 200, geramos um erro para cair no .catch
+            throw new Error('Ops! Houve um erro em nosso servidor.');
+          }
+        })
+        .then(response => {
+          // Neste ponto, "response" já é um objeto JS (resultado do .json()).
+          // Exibimos no modal como string JSON formatada (indentação de 2 espaços).
+          // .records é a propriedade usada por essa API específica de exemplo.
+          abrirModal(JSON.stringify(response.records, null, 2));
+        })
+        .catch(error => {
+          // Se faltar internet, CORS bloquear, ou outra falha ocorrer, informamos.
+          // A mensagem também lembra que o servidor local precisa estar rodando
+          // caso você esteja testando a outra rota (request2).
+          abrirModal('Atenção: Você deve executar o serviço NodeJS com webserver primeiro.\n\nEx.: node server.js\n\nDetalhes: ' + error.message);
+        });
+    }
+
+    // ========================================================================
+    // Request 2 — Usando XMLHttpRequest + eventos
+    // Objetivo:
+    //   - Demonstrar uma requisição AJAX "clássica" via XHR para o seu servidor.
+    //   - Consumir a rota GET /dados (definida no server.js) e renderizar a tabela.
+    //
+    // Relação com server.js:
+    //   - Depende do app.get('/dados', ...) que responde com um array JSON:
+    //       [
+    //         { vendedor: 'Fulano',   valorVendido: 1000.0 },
+    //         { vendedor: 'Beltrano', valorVendido: 1200.0 },
+    //         { vendedor: 'Sicrano',  valorVendido: 1100.0 }
+    //       ]
+    //   - Só funciona se o servidor estiver rodando em http://localhost:3000
+    //     (por causa do app.listen(PORT) com PORT=3000).
+    // ========================================================================
+    function request2() {
+      // Cria uma instância de XMLHttpRequest (API baseada em eventos)
+      var request = new XMLHttpRequest();
+
+      // Anexa ouvintes de eventos do ciclo de vida da requisição
+      request.addEventListener('progress', updateProgress, false);
+      request.addEventListener('load',     transferComplete, false);
+      request.addEventListener('error',    transferFailed, false);
+      request.addEventListener('abort',    transferCanceled, false);
+
+      // Prepara a chamada HTTP:
+      // - Método: GET
+      // - URL: rota /dados do seu servidor local (Express)
+      // - Assíncrona: true
+      request.open('GET', 'http://localhost:3000/dados', true);
+
+      // Envia a requisição ao servidor
+      request.send();
+    }
+
+    // updateProgress: chamado durante o carregamento (se o servidor informa tamanho)
+    function updateProgress(oEvent) {
+      if (oEvent.lengthComputable) {
+        // Calcula o percentual já transferido
+        var percentComplete = oEvent.loaded / oEvent.total;
+        // Converte para porcentagem com duas casas (ex.: 12.34 %)
+        var r = Math.trunc(percentComplete * 10000 + 0.5);
+        r = r / 100;
+        console.log('Total processado: ' + r + ' %.');
+      } else {
+        // Alguns servidores não informam o tamanho total; nesse caso, não computa
+        console.log('Não foi possível determinar progresso');
+      }
+    }
+
+    // transferComplete: chamado quando a resposta chega completamente
+    function transferComplete(evt) {
+      // Protege o bloco para capturar problemas de parsing, etc.
+      try {
+        // Somente consideramos sucesso se o status HTTP for 200 (OK)
+        if (evt.target.status === 200) {
+          // A resposta vem como string JSON; precisamos converter para objeto
+          const obj = JSON.parse(evt.target.response);
+          // Opcionalmente, poderíamos inspecionar com alert(evt.target.response)
+          // Agora, atualizamos a tabela com os dados
+          recuperarDados(obj);
+        } else {
+          // Se não for 200, tratamos como falha
+          transferFailed(evt);
+        }
+      } catch (e) {
+        console.error(e);
+        transferFailed(evt);
+      }
+    }
+
+    // transferFailed: chamado em caso de erro de rede, CORS, parsing, etc.
+    function transferFailed(evt) {
+      // Mostra uma mensagem simples com o conteúdo da resposta (se existir)
+      alert('Um erro ocorreu durante a requisição: ' + (evt?.target?.response || ''));
+    }
+
+    // transferCanceled: chamado se a requisição for abortada
+    function transferCanceled(evt) {
+      alert('A transferência foi cancelada pelo usuário.');
+    }
+
+    // ========================================================================
+    // recuperarDados(obj)
+    // - Recebe um array de objetos (JSON convertido) no formato:
+    //     [{ vendedor: 'Fulano', valorVendido: 1000 }, ...]
+    // - Limpa a tabela "dados" (mantendo o cabeçalho) e insere as novas linhas.
+    // - Calcula o total vendido e coloca uma linha de total no final.
+    //
+    // Relação com server.js:
+    //   - Os campos usados aqui (vendedor, valorVendido) precisam existir no
+    //     array retornado pela rota GET /dados. Alterar o back-end exigirá
+    //     ajustar a renderização front-end para novos nomes/formatos.
+    // ========================================================================
+    function recuperarDados(obj) {
+      // Ref. à tabela onde inseriremos as linhas
+      const tbl = document.getElementById('dados');
+
+      // Remove quaisquer linhas antigas (mantendo a primeira linha de cabeçalho)
+      while (tbl.rows.length > 1) tbl.deleteRow(1);
+
+      // Acumulador de total
+      let total = 0;
+
+      // Percorre o array de objetos e cria uma <tr> para cada item
+      for (let index = 0; index < obj.length; index++) {
+        const element = obj[index];
+
+        // Cria uma linha de tabela
+        const tr = document.createElement('tr');
+
+        // Monta as células com vendedor e valorVendido
+        tr.innerHTML =
+          '<td>' + element.vendedor + '</td>' +
+          '<td class="valor">' + element.valorVendido + '</td>';
+
+        // Adiciona a linha na tabela
+        tbl.appendChild(tr);
+
+        // Soma o valor para o total
+        total += element.valorVendido;
+      }
+
+      // Cria uma última linha com o total vendido
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<th>Total Vendido</th>' +
+        '<th class="valor">' + total + '</th>';
+      tbl.appendChild(tr);
+    }
+
+    // ========================================================================
+    // Dica de UX:
+    // - Se quiser lembrar o usuário de iniciar o servidor ao abrir a página,
+    //   descomente o bloco abaixo. Ele abrirá o modal com a mensagem.
+    //
+    // Relação com server.js:
+    //   - Útil para lembrar que, sem "node server.js" rodando, a request2 falha.
+    // ========================================================================
+    // window.addEventListener('load', () =>
+    //   abrirModal('Atenção: Você deve executar o serviço NodeJS com webserver primeiro.\n\nnode server.js')
+    // );
+  </script>
+</body>
+</html>
