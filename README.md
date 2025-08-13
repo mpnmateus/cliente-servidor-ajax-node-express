@@ -56,15 +56,16 @@ req-cliente-servidor/
 
 2. **Clone este repositório**
 
-cd cliente-servidor-ajax-node-express
+	```bash 
+	cd cliente-servidor-ajax-node-express```
 
 3. **Instale as dependências**
+	```bash
+	npm install```
 
-```npm install```
-
-4 . **Inicie o servidor**
-
-node server.js
+4. **Inicie o servidor**
+	```bash
+	node server.js```
 
 5. **Abra no navegador**
 
@@ -85,19 +86,19 @@ http://localhost:3000/requests.html
 		- Servidor interno (/dados) → gera uma tabela dinâmica e calcula o total vendido.
 
 ## 📖 Conceitos Trabalhados
-Cliente-Servidor: Comunicação entre front-end e back-end.
+- Cliente-Servidor: Comunicação entre front-end e back-end.
 
-AJAX: Atualização de partes da página sem recarregar o navegador.
+- AJAX: Atualização de partes da página sem recarregar o navegador.
 
-fetch API: Requisições modernas com Promises.
+- fetch API: Requisições modernas com Promises.
 
-XMLHttpRequest: API clássica de requisições assíncronas.
+- XMLHttpRequest: API clássica de requisições assíncronas.
 
-Express static middleware: Servindo arquivos estáticos no Node.js.
+- Express static middleware: Servindo arquivos estáticos no Node.js.
 
-Rotas REST simples: GET com JSON de resposta.
+- Rotas REST simples: GET com JSON de resposta.
 
-Manipulação do DOM: Atualização dinâmica de tabelas e exibição de modais.
+- Manipulação do DOM: Atualização dinâmica de tabelas e exibição de modais.
 
 ## 📜 Licença
 Este projeto é de uso educacional.
